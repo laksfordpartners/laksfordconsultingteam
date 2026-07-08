@@ -1,0 +1,33 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Laksford Partners">
+  <defs>
+    <linearGradient id="lpG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c5cd6"/>
+      <stop offset="0.55" stop-color="#2b7de9"/>
+      <stop offset="1" stop-color="#38d2f0"/>
+    </linearGradient>
+    <linearGradient id="lpDeep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1f44"/>
+      <stop offset="1" stop-color="#102a5c"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="92" height="92" rx="24" fill="url(#lpDeep)"/>
+  <!-- pixel dissipation motif -->
+  <g fill="url(#lpG)">
+    <rect x="16" y="20" width="6" height="6" rx="1.4"/>
+    <rect x="25" y="16" width="5" height="5" rx="1.2" opacity=".8"/>
+    <rect x="24" y="27" width="4" height="4" rx="1" opacity=".6"/>
+    <rect x="16" y="31" width="4.5" height="4.5" rx="1.1" opacity=".7"/>
+  </g>
+  <!-- L -->
+  <path d="M30 30 h11 v32 h17 v11 H30 Z" fill="#ffffff"/>
+  <!-- P -->
+  <path d="M55 30 h17 a14 14 0 0 1 0 28 h-6 v15 h-11 Z M66 41 v6 h5 a3 3 0 0 0 0 -6 Z" fill="url(#lpG)"/>
+  <!-- globe -->
+  <g transform="translate(58 47)" stroke="#8cc0ff" stroke-width="1.3" fill="none" opacity=".95">
+    <circle r="11" fill="url(#lpDeep)" stroke="#4f9bff"/>
+    <ellipse rx="5" ry="11"/>
+    <line x1="-11" y1="0" x2="11" y2="0"/>
+    <line x1="-9.5" y1="-5.5" x2="9.5" y2="-5.5"/>
+    <line x1="-9.5" y1="5.5" x2="9.5" y2="5.5"/>
+  </g>
+</svg>

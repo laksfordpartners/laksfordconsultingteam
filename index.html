@@ -1,788 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Agent Command Center — Laksford Holdings</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
-<style>
-/* ============================================================
-   AGENT COMMAND CENTER — node-graph "second brain" dashboard
-   Single self-contained file. Only external dep = Google Fonts.
-   ============================================================ */
-
-:root{
-  --bg:#05060a;
-  --bg2:#0a0e18;
-  --amber:#ffb347;
-  --amber-bright:#ffd27a;
-  --cyan:#39e0ff;
-  --cyan-dim:#1b8aa6;
-  --green:#3dffa6;
-  --red:#ff5a6e;
-  --text:#e8eef7;
-  --text-dim:#8ea0b8;
-  --line:#1c2740;
-  --card:rgba(12,18,32,0.92);
-}
-
-*{box-sizing:border-box;}
-html,body{margin:0;padding:0;height:100%;}
-body{
-  background:radial-gradient(1200px 800px at 50% 38%, #0d1424 0%, var(--bg2) 45%, var(--bg) 100%);
-  color:var(--text);
-  font-family:'Rajdhani',system-ui,sans-serif;
-  overflow:hidden;
-}
-
-/* subtle grid + particle backdrop */
-#bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:
-    linear-gradient(rgba(57,224,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(57,224,255,0.04) 1px, transparent 1px);
-  background-size:46px 46px;
-  mask-image:radial-gradient(circle at 50% 45%, black 0%, transparent 78%);
-}
-#bg-particles{position:fixed;inset:0;z-index:0;pointer-events:none;}
-
-/* ---------- header ---------- */
-header{
-  position:fixed;top:0;left:0;right:0;z-index:30;
-  display:flex;align-items:center;justify-content:space-between;
-  gap:12px;padding:14px 22px;
-  background:linear-gradient(180deg, rgba(5,6,10,0.92), rgba(5,6,10,0.0));
-  pointer-events:none;
-}
-header .left{pointer-events:auto;display:flex;align-items:center;gap:14px;}
-.lc-logo{width:158px;height:auto;flex:0 0 auto;
-  filter:drop-shadow(0 0 6px rgba(212,168,75,0.45));}
-header .brandtext{display:flex;flex-direction:column;}
-header h1{
-  font-family:'Orbitron',sans-serif;font-weight:900;
-  font-size:20px;letter-spacing:3px;margin:0;
-  color:var(--amber-bright);
-  text-shadow:0 0 14px rgba(255,179,71,0.55);
-}
-header .sub{font-size:12px;letter-spacing:5px;color:var(--cyan);
-  text-shadow:0 0 10px rgba(57,224,255,0.4);margin-top:2px;}
-header .right{pointer-events:auto;text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
-#clock{font-family:'Share Tech Mono',monospace;font-size:15px;color:var(--text);letter-spacing:1px;}
-#sys-status{
-  font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;letter-spacing:2px;
-  padding:4px 12px;border-radius:20px;border:1px solid var(--green);
-  color:var(--green);box-shadow:0 0 12px rgba(61,255,166,0.25) inset, 0 0 10px rgba(61,255,166,0.18);
-}
-#sys-status.attention{border-color:var(--amber);color:var(--amber-bright);
-  box-shadow:0 0 14px rgba(255,179,71,0.3) inset, 0 0 14px rgba(255,179,71,0.25);
-  animation:sysblink 1.6s ease-in-out infinite;}
-@keyframes sysblink{0%,100%{opacity:1;}50%{opacity:0.6;}}
-
-/* ---------- graph stage ---------- */
-#stage{position:fixed;inset:0;z-index:10;}
-#graph{width:100%;height:100%;display:block;}
-
-/* node detail card */
-#detail{
-  position:fixed;z-index:40;width:340px;max-width:88vw;
-  background:var(--card);border:1px solid var(--line);
-  border-radius:14px;padding:18px 18px 16px;
-  box-shadow:0 0 0 1px rgba(57,224,255,0.08), 0 18px 50px rgba(0,0,0,0.6), 0 0 30px rgba(57,224,255,0.12);
-  backdrop-filter:blur(8px);
-  opacity:0;transform:translateY(8px) scale(0.98);pointer-events:none;
-  transition:opacity .18s ease, transform .18s ease;
-}
-#detail.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
-#detail .dh{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-#detail .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 10px currentColor;}
-#detail h3{font-family:'Orbitron',sans-serif;font-size:15px;letter-spacing:1px;margin:0;color:var(--amber-bright);}
-#detail .badge{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:11px;
-  padding:2px 8px;border-radius:10px;border:1px solid currentColor;letter-spacing:1px;}
-#detail .desc{font-size:13.5px;color:var(--text-dim);line-height:1.4;margin:6px 0 12px;}
-#detail .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;
-  padding:6px 0;border-top:1px solid rgba(28,39,64,0.7);}
-#detail .row .k{color:var(--cyan);letter-spacing:1px;text-transform:uppercase;font-size:11px;font-weight:600;}
-#detail .row .v{color:var(--text);text-align:right;font-family:'Share Tech Mono',monospace;font-size:12px;}
-#detail .result{margin-top:10px;font-size:13px;line-height:1.45;color:var(--text);
-  background:rgba(57,224,255,0.05);border-left:2px solid var(--cyan);padding:8px 10px;border-radius:0 8px 8px 0;}
-#detail .pending-flag{margin-top:10px;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--amber-bright);
-  display:flex;align-items:center;gap:6px;}
-#detail .close{position:absolute;top:10px;right:12px;cursor:pointer;color:var(--text-dim);
-  font-size:18px;line-height:1;background:none;border:none;pointer-events:auto;}
-#detail .close:hover{color:var(--text);}
-
-/* ---------- action queue ---------- */
-#queue{
-  position:fixed;z-index:25;right:18px;bottom:18px;width:320px;max-width:90vw;
-  background:var(--card);border:1px solid var(--line);border-radius:14px;
-  box-shadow:0 14px 40px rgba(0,0,0,0.55);backdrop-filter:blur(8px);
-  overflow:hidden;transition:transform .25s ease;
-}
-#queue .qh{display:flex;align-items:center;gap:8px;padding:11px 14px;
-  background:linear-gradient(90deg, rgba(255,179,71,0.12), rgba(255,179,71,0.02));
-  border-bottom:1px solid var(--line);cursor:pointer;}
-#queue .qh .ttl{font-family:'Orbitron',sans-serif;font-size:12.5px;letter-spacing:2px;color:var(--amber-bright);}
-#queue .qh .count{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:12px;
-  background:var(--amber);color:#1a1206;font-weight:700;border-radius:10px;padding:1px 8px;}
-#queue .qh .count.zero{background:var(--green);}
-#queue .qbody{max-height:46vh;overflow-y:auto;}
-#queue.collapsed .qbody{display:none;}
-.qitem{padding:10px 14px;border-bottom:1px solid rgba(28,39,64,0.6);display:flex;gap:10px;}
-.qitem:last-child{border-bottom:none;}
-.qitem .pri{font-family:'Share Tech Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:1px;
-  padding:2px 6px;border-radius:6px;height:fit-content;flex:0 0 auto;}
-.qitem .pri.HIGH{background:rgba(255,90,110,0.16);color:var(--red);border:1px solid var(--red);}
-.qitem .pri.MEDIUM{background:rgba(255,179,71,0.16);color:var(--amber-bright);border:1px solid var(--amber);}
-.qitem .pri.LOW{background:rgba(57,224,255,0.14);color:var(--cyan);border:1px solid var(--cyan-dim);}
-.qitem .qt{font-size:13px;font-weight:600;color:var(--text);line-height:1.3;cursor:pointer;}
-.qitem .qd{font-size:12px;color:var(--text-dim);line-height:1.35;margin-top:2px;}
-.qempty{padding:16px 14px;font-size:13px;color:var(--text-dim);text-align:center;}
-
-/* ---------- footer / refresh bar ---------- */
-#footbar{position:fixed;z-index:25;left:18px;bottom:18px;
-  display:flex;align-items:center;gap:12px;
-  font-family:'Share Tech Mono',monospace;font-size:11.5px;color:var(--text-dim);
-  background:rgba(10,14,24,0.7);border:1px solid var(--line);border-radius:10px;padding:7px 12px;backdrop-filter:blur(6px);}
-#footbar #updated{letter-spacing:0.5px;}
-#refreshBtn{background:none;border:1px solid var(--cyan-dim);color:var(--cyan);
-  font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:1px;font-size:12px;
-  border-radius:8px;padding:4px 12px;cursor:pointer;transition:all .15s;}
-#refreshBtn:hover{background:rgba(57,224,255,0.12);box-shadow:0 0 12px rgba(57,224,255,0.25);}
-#refreshBtn.spin{opacity:0.6;pointer-events:none;}
-
-/* ---------- error / awaiting banner ---------- */
-#banner{position:fixed;z-index:28;top:74px;left:50%;transform:translateX(-50%);
-  background:rgba(255,90,110,0.12);border:1px solid var(--red);color:#ffd0d6;
-  padding:8px 16px;border-radius:10px;font-size:13px;letter-spacing:0.5px;display:none;}
-#banner.show{display:block;}
-
-/* ---------- password gate ---------- */
-#gate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(800px 600px at 50% 40%, #0c1322 0%, #05060a 80%);}
-#gate.hidden{display:none;}
-#gate .box{width:360px;max-width:90vw;text-align:center;padding:30px 28px;
-  background:var(--card);border:1px solid var(--line);border-radius:16px;
-  box-shadow:0 0 40px rgba(57,224,255,0.12), 0 20px 60px rgba(0,0,0,0.6);}
-#gate .ring{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;
-  border:2px solid var(--amber);box-shadow:0 0 24px rgba(255,179,71,0.5), 0 0 24px rgba(255,179,71,0.3) inset;
-  display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--amber-bright);
-  animation:pulsering 2.4s ease-in-out infinite;}
-@keyframes pulsering{0%,100%{box-shadow:0 0 24px rgba(255,179,71,0.5), 0 0 24px rgba(255,179,71,0.3) inset;}
-  50%{box-shadow:0 0 38px rgba(255,179,71,0.8), 0 0 30px rgba(255,179,71,0.45) inset;}}
-#gate h2{font-family:'Orbitron',sans-serif;font-size:17px;letter-spacing:2px;color:var(--amber-bright);margin:0 0 4px;}
-#gate p{font-size:12.5px;color:var(--text-dim);letter-spacing:1px;margin:0 0 18px;}
-#gate input{width:100%;padding:11px 14px;background:#0a0f1a;border:1px solid var(--line);border-radius:9px;
-  color:var(--text);font-family:'Share Tech Mono',monospace;font-size:14px;letter-spacing:2px;text-align:center;}
-#gate input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 14px rgba(57,224,255,0.25);}
-#gate button{margin-top:12px;width:100%;padding:11px;background:linear-gradient(90deg,var(--amber),var(--amber-bright));
-  border:none;border-radius:9px;color:#1a1206;font-family:'Orbitron',sans-serif;font-weight:700;letter-spacing:2px;
-  font-size:13px;cursor:pointer;transition:filter .15s;}
-#gate button:hover{filter:brightness(1.08);}
-#gate .err{color:var(--red);font-size:12px;height:16px;margin-top:8px;letter-spacing:1px;}
-#gate .note{margin-top:16px;font-size:10.5px;color:#5d6c84;line-height:1.4;letter-spacing:0.5px;}
-
-/* ---------- responsive ---------- */
-@media (max-width:720px){
-  header{flex-direction:column;align-items:flex-start;gap:6px;padding:10px 14px;}
-  header .right{align-items:flex-start;text-align:left;}
-  header h1{font-size:16px;letter-spacing:2px;}
-  .lc-logo{width:124px;}
-  header .left{gap:10px;}
-  #queue{left:10px;right:10px;width:auto;bottom:10px;}
-  #footbar{left:10px;bottom:auto;top:auto;position:fixed;bottom:calc(46vh + 70px);}
-  #detail{left:50% !important;top:auto !important;bottom:calc(46vh + 70px);transform:translateX(-50%);}
-  #detail.show{transform:translateX(-50%) translateY(0);}
-}
-</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digitalization Firm | B2B Performance Marketing &amp; Automation | Laksford Partners</title>
+<meta name="description" content="Laksford Partners is a digitalization firm delivering B2B performance marketing, omnichannel business automation, and conversion rate optimization for Fort Lauderdale businesses ready to grow revenue.">
+<link rel="canonical" href="https://laksford.com/">
+<meta property="og:title" content="Digitalization Firm | B2B Performance Marketing &amp; Automation | Laksford Partners">
+<meta property="og:description" content="A digitalization firm delivering B2B performance marketing infrastructure, omnichannel business automation, and conversion rate optimization for Fort Lauderdale and beyond.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://laksford.com/">
+<meta property="og:site_name" content="Laksford Partners">
+<meta property="og:image" content="https://laksford.com/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Digitalization Firm | B2B Performance Marketing &amp; Automation | Laksford Partners">
+<meta name="twitter:description" content="A digitalization firm delivering B2B performance marketing, omnichannel business automation, and conversion rate optimization for local businesses.">
+<meta name="twitter:image" content="https://laksford.com/og-image.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
-<!-- ============================================================
-     LIGHT UX PASSWORD GATE — NOT REAL SECURITY.
-     This page and agents_status.json are public static files on
-     GitHub Pages. Anyone can view-source or fetch the JSON directly.
-     The gate only keeps casual passers-by out of the visual. That
-     is precisely WHY no raw customer PII may ever go in the JSON.
-     Change this before sharing. For true privacy use a real-auth host.
-     ============================================================ -->
-<script>
-  const DASHBOARD_PASSWORD = "rohanranforbes30under30";
-</script>
-
-<div id="bg-grid"></div>
-<canvas id="bg-particles"></canvas>
-
-<header>
-  <div class="left">
-    <!-- Laksford Consulting brand mark — inline SVG, no external image -->
-    <svg class="lc-logo" viewBox="0 0 210 58" role="img"
-         aria-label="Laksford Consulting" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="lcGold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#f5d27a"/>
-          <stop offset="48%" stop-color="#d4a84b"/>
-          <stop offset="100%" stop-color="#b8862f"/>
-        </linearGradient>
-        <linearGradient id="lcGoldSoft" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#fce9bf"/>
-          <stop offset="100%" stop-color="#e9c168"/>
-        </linearGradient>
-        <filter id="lcGlow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="2.2" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <!-- rounded squircle emblem -->
-      <g filter="url(#lcGlow)">
-        <rect x="4" y="6" width="46" height="46" rx="15"
-              fill="#120d05" stroke="url(#lcGold)" stroke-width="2.4"/>
-        <rect x="9.5" y="11.5" width="35" height="35" rx="11"
-              fill="none" stroke="url(#lcGold)" stroke-width="1" stroke-opacity="0.4"/>
-        <!-- friendly rounded LC monogram -->
-        <text x="26.5" y="38" text-anchor="middle"
-              font-family="Orbitron, sans-serif" font-weight="700"
-              font-size="21" letter-spacing="-1.5" fill="url(#lcGoldSoft)">LC</text>
-        <!-- subtle gem / sparkle nod (4-point star) -->
-        <path d="M41 13 L42.4 16.4 L45.8 17.8 L42.4 19.2 L41 22.6 L39.6 19.2 L36.2 17.8 L39.6 16.4 Z"
-              fill="#fce9bf"/>
-        <circle cx="13.5" cy="44" r="1.4" fill="#f5d27a" opacity="0.85"/>
-      </g>
-      <!-- wordmark -->
-      <text x="60" y="27" font-family="Orbitron, sans-serif" font-weight="700"
-            font-size="15" letter-spacing="1.5" fill="url(#lcGold)">LAKSFORD</text>
-      <text x="61" y="43" font-family="'Share Tech Mono', monospace"
-            font-size="9.5" letter-spacing="4.2" fill="#d4a84b">CONSULTING</text>
-    </svg>
-    <div class="brandtext">
-      <h1>AGENT COMMAND CENTER</h1>
-      <div class="sub">ARVANI 305 &middot; LAKSFORD HOLDINGS</div>
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="index.html">
+      <img class="logo-svg" src="assets/logo.svg" alt="Laksford Partners">
+      <span class="brand-text"><span class="brand-name">LAKSFORD</span><span class="brand-sub">Partners</span></span>
+    </a>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li class="has-drop">
+          <a href="#industries">Industries ▾</a>
+          <div class="drop">
+            <a href="real-estate.html">Real Estate &amp; Leasing<span>Guaranteed rent, hands-off ownership</span></a>
+            <a href="medical-practices.html">Medical Practices<span>Patient growth that converts</span></a>
+            <a href="ecommerce.html">E-commerce &amp; Retail<span>Local store to global brand</span></a>
+            <a href="social-media.html">Social Media &amp; Video<span>Content that drives sales</span></a>
+          </div>
+        </li>
+        <li><a href="consulting.html">Consulting</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="contact.html">Book a Strategy Call</a>
+      <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
-  </div>
-  <div class="right">
-    <div id="clock">--:--:--</div>
-    <div id="sys-status">SYSTEM NOMINAL</div>
   </div>
 </header>
 
-<div id="banner"></div>
-
-<div id="stage">
-  <svg id="graph" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="mobile-menu">
+  <button class="mobile-close" aria-label="Close">&times;</button>
+  <a href="index.html">Home</a>
+  <a href="real-estate.html">Real Estate</a>
+  <a href="medical-practices.html">Medical Practices</a>
+  <a href="ecommerce.html">E-commerce</a>
+  <a href="social-media.html">Social Media</a>
+  <a href="consulting.html">Consulting</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="about.html">About</a>
+  <a href="contact.html">Contact</a>
 </div>
 
-<div id="detail">
-  <button class="close" aria-label="close">&times;</button>
-  <div class="dh">
-    <span class="dot"></span>
-    <h3 id="d-name">—</h3>
-    <span class="badge" id="d-badge">—</span>
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow g1"></div>
+  <div class="hero-glow g2"></div>
+  <canvas id="hero-canvas"></canvas>
+  <div class="wrap">
+    <div class="hero-copy">
+      <span class="hero-eyebrow">Digitalization Firm · B2B Performance Marketing &amp; Automation</span>
+      <h1>We turn local businesses into <span class="gradient-text">digital-first</span> enterprises.</h1>
+      <p>Laksford Partners is a digitalization firm for landlords, medical practices, retailers, and brands. We build B2B performance marketing infrastructure, omnichannel business automation, and conversion rate optimization (CRO) that turn attention into revenue.</p>
+      <div class="hero-btns">
+        <a class="btn btn-primary" href="contact.html">Book a Strategy Call <span class="arrow">→</span></a>
+        <a class="btn btn-ghost" href="#industries">Explore Industries</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><strong><span data-count="6">0</span></strong><span>Markets served</span></div>
+        <div class="stat"><strong><span data-count="2" data-prefix="$">0</span><span style="font-size:1.2rem">→$110</span></strong><span>Cost / add-to-cart cut</span></div>
+        <div class="stat"><strong><span data-count="2">0</span></strong><span>Continents, one team</span></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="orbit-wrap">
+        <div class="pulse-ring"></div>
+        <div class="globe-core"></div>
+        <svg class="globe-grid" role="img" aria-label="Global digitalization firm delivering omnichannel business automation across six markets" viewBox="0 0 200 200" fill="none" stroke="rgba(140,192,255,.55)" stroke-width="1">
+          <title>Global digitalization and omnichannel business automation network</title>
+          <circle cx="100" cy="100" r="98"/>
+          <ellipse cx="100" cy="100" rx="45" ry="98"/>
+          <ellipse cx="100" cy="100" rx="80" ry="98"/>
+          <line x1="2" y1="100" x2="198" y2="100"/>
+          <line x1="14" y1="55" x2="186" y2="55"/>
+          <line x1="14" y1="145" x2="186" y2="145"/>
+        </svg>
+        <div class="orbit o1"><span class="node"></span></div>
+        <div class="orbit o2"><span class="node"></span></div>
+      </div>
+    </div>
   </div>
-  <div class="desc" id="d-desc">—</div>
-  <div class="row"><span class="k">Schedule</span><span class="v" id="d-sched">—</span></div>
-  <div class="row"><span class="k">Last Run</span><span class="v" id="d-last">—</span></div>
-  <div class="row"><span class="k">Next Run</span><span class="v" id="d-next">—</span></div>
-  <div class="result" id="d-result">—</div>
-  <div class="pending-flag" id="d-pending" style="display:none">&#9888; Action items pending review</div>
-</div>
+</section>
 
-<div id="queue">
-  <div class="qh" id="qhead">
-    <span class="ttl">ACTION QUEUE</span>
-    <span class="count" id="qcount">0</span>
+<!-- TRUST BAR -->
+<section class="trustbar">
+  <div class="wrap">
+    <p>Trusted across</p>
+    <div class="trust-items">
+      <span>Real Estate</span><span>Healthcare</span><span>E-commerce</span><span>Jewelry &amp; Retail</span><span>Pharma</span>
+    </div>
   </div>
-  <div class="qbody" id="qbody"></div>
-</div>
+</section>
 
-<div id="footbar">
-  <span id="updated">awaiting data…</span>
-  <button id="refreshBtn">&#8635; REFRESH</button>
-</div>
-
-<!-- ---------- password gate overlay ---------- -->
-<div id="gate">
-  <div class="box">
-    <div class="ring">&#9750;</div>
-    <h2>NEURAL LINK LOCKED</h2>
-    <p>ENTER ACCESS KEY</p>
-    <input id="gate-input" type="password" autocomplete="off" placeholder="••••••••" />
-    <button id="gate-btn">CONNECT</button>
-    <div class="err" id="gate-err"></div>
-    <div class="note">Light access gate only — not real security. This dashboard and its
-      data file are public static files; no customer PII is stored here.</div>
+<!-- INTRO / VALUE -->
+<section class="section" id="approach">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">What we do</span>
+      <h2>Omnichannel business automation, end to end</h2>
+      <p class="lead" style="margin:1rem auto 0">Most firms hand you a logo or a report and leave. As a digitalization firm, we design the system, build the B2B performance marketing infrastructure, run it, and teach your team to own it — so growth keeps compounding after we're done.</p>
+    </div>
+    <div class="grid g-4" style="margin-top:3rem">
+      <div class="card reveal">
+        <div class="ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></div>
+        <h3>Property Leasing</h3>
+        <p>Guaranteed rent, hotel-grade upkeep, and zero hassle. We become your tenant and treat your asset better than you would.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+        <h3>Performance Marketing</h3>
+        <p>B2B performance marketing infrastructure and Facebook &amp; Instagram ads engineered for real conversions — not vanity metrics. We collect interested buyers; your team closes.</p>
+      </div>
+      <div class="card reveal d2">
+        <div class="ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div>
+        <h3>Video That Converts</h3>
+        <p>In 15 minutes on Zoom we teach your team to shoot content that slashes cost-per-result — conversion rate optimization (CRO) built into every frame.</p>
+      </div>
+      <div class="card reveal d3">
+        <div class="ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg></div>
+        <h3>Go Global</h3>
+        <p>Turn a single retail location into a worldwide store with omnichannel business automation. We set up the infrastructure and manage the accounts end to end.</p>
+      </div>
+    </div>
   </div>
-</div>
+</section>
 
-<script>
-/* ============================================================
-   CONFIG
-   ============================================================ */
-const DATA_FILE = "agents_status.json";   // sibling file, relative name
-const REFRESH_MS = 60000;                  // auto-refresh every 60s
+<!-- INDUSTRIES -->
+<section class="section" id="industries" style="background:var(--bg-soft)">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Industries</span>
+      <h2>Built for the businesses we know best</h2>
+      <p class="lead" style="margin:1rem auto 0">Deep digitalization playbooks — B2B performance marketing and conversion rate optimization for the sectors where we've already moved the needle.</p>
+    </div>
+    <div class="grid g-4" style="margin-top:3rem">
+      <a class="ind-card reveal" href="real-estate.html">
+        <div class="ind-bg" style="background:radial-gradient(circle at 70% 20%,#1c5cd6,#07142e)"></div>
+        <div class="ind-overlay"></div>
+        <div class="ind-ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+        <h3>Real Estate &amp; Leasing</h3>
+        <p>We lease your property, guarantee the rent, and keep it cleaner than ever.</p>
+        <span class="ind-link">Explore program →</span>
+      </a>
+      <a class="ind-card reveal d1" href="medical-practices.html">
+        <div class="ind-bg" style="background:radial-gradient(circle at 70% 20%,#2b7de9,#07142e)"></div>
+        <div class="ind-overlay"></div>
+        <div class="ind-ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.5-1.6 3-3.5 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5C2 12 6 15 12 20c2.5-2 4.7-3.9 7-6z"/></svg></div>
+        <h3>Medical Practices</h3>
+        <p>Awareness, followers, and a website framework that delivers real patients.</p>
+        <span class="ind-link">See the results →</span>
+      </a>
+      <a class="ind-card reveal d2" href="ecommerce.html">
+        <div class="ind-bg" style="background:radial-gradient(circle at 70% 20%,#38d2f0,#07142e)"></div>
+        <div class="ind-overlay"></div>
+        <div class="ind-ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></div>
+        <h3>E-commerce &amp; Retail</h3>
+        <p>From a local shop to a global storefront — built, trained, and managed.</p>
+        <span class="ind-link">See the case →</span>
+      </a>
+      <a class="ind-card reveal d3" href="social-media.html">
+        <div class="ind-bg" style="background:radial-gradient(circle at 70% 20%,#4f9bff,#07142e)"></div>
+        <div class="ind-overlay"></div>
+        <div class="ind-ic"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div>
+        <h3>Social Media &amp; Video</h3>
+        <p>We train your team to make videos that convert — fast, on Zoom.</p>
+        <span class="ind-link">See the framework →</span>
+      </a>
+    </div>
+  </div>
+</section>
 
-let DATA = null;
-let nodes = [];          // computed render nodes {agent, x, y, r, color}
-let brain = {x:0,y:0,r:0};
-let selectedId = null;
-let hoverId = null;
-let W = 0, H = 0;
-let t0 = performance.now();
+<!-- FEATURE: framework -->
+<section class="section">
+  <div class="wrap">
+    <div class="feature-row">
+      <div class="reveal">
+        <span class="eyebrow">The conversion engine</span>
+        <h2>We don't chase likes. We build conversion rate optimization pipelines.</h2>
+        <p class="lead" style="margin-top:1rem">Followers and impressions feel good but don't pay rent. Our conversion rate optimization (CRO) and B2B performance marketing infrastructure is engineered to capture genuinely interested people and hand them to your team ready to buy.</p>
+        <ul class="feature-list">
+          <li><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span> Websites with frameworks designed to convert, not just look pretty.</li>
+          <li><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span> Paid social that lowers cost-per-result instead of burning budget.</li>
+          <li><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span> Real leads collected and qualified — your team simply closes.</li>
+          <li><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span> Training so your people can run the engine without us.</li>
+        </ul>
+        <a class="btn btn-outline" href="medical-practices.html" style="margin-top:1.6rem">See it in healthcare <span class="arrow">→</span></a>
+      </div>
+      <div class="feature-visual reveal d1">
+        <svg role="img" aria-label="Conversion rate optimization funnel turning attention into interested buyers for B2B performance marketing" viewBox="0 0 480 360" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%">
+          <title>Conversion rate optimization funnel: attention to interested to buyers</title>
+          <defs><linearGradient id="fg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c5cd6"/><stop offset="1" stop-color="#38d2f0"/></linearGradient></defs>
+          <rect width="480" height="360" fill="#0b1c3f"/>
+          <g opacity=".25" stroke="#4f9bff"><path d="M0 90h480M0 180h480M0 270h480M120 0v360M240 0v360M360 0v360"/></g>
+          <!-- funnel -->
+          <path d="M90 70h300l-60 90H150z" fill="url(#fg1)" opacity=".9"/>
+          <path d="M150 175h180l-45 70H195z" fill="url(#fg1)" opacity=".7"/>
+          <path d="M195 260h90l-25 55h-40z" fill="url(#fg1)" opacity=".95"/>
+          <text x="240" y="120" fill="#fff" font-size="22" font-weight="700" text-anchor="middle" font-family="Plus Jakarta Sans">Attention</text>
+          <text x="240" y="218" fill="#fff" font-size="18" font-weight="700" text-anchor="middle" font-family="Plus Jakarta Sans">Interested</text>
+          <text x="240" y="296" fill="#07142e" font-size="15" font-weight="800" text-anchor="middle" font-family="Plus Jakarta Sans">Buyers</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
 
-const svg = document.getElementById("graph");
-const SVGNS = "http://www.w3.org/2000/svg";
+<!-- STATS BAND -->
+<section class="section stats-band">
+  <div class="hero-glow g1" style="top:-120px;right:-80px"></div>
+  <div class="wrap">
+    <div class="section-head center reveal" style="margin:0 auto 2.5rem">
+      <h2 style="color:#fff">Numbers that matter to owners</h2>
+    </div>
+    <div class="stats-grid">
+      <div class="reveal"><div class="num"><span data-count="96" data-suffix="%">0</span></div><div class="lbl">Cost-per-add-to-cart reduction for a jewelry client</div></div>
+      <div class="reveal d1"><div class="num"><span data-count="6">0</span></div><div class="lbl">Cities in our leasing footprint</div></div>
+      <div class="reveal d2"><div class="num"><span data-count="15" data-suffix=" min">0</span></div><div class="lbl">To teach your team a converting video</div></div>
+      <div class="reveal d3"><div class="num"><span data-count="24" data-suffix="/7">0</span></div><div class="lbl">Coverage across FL &amp; Ahmedabad teams</div></div>
+    </div>
+  </div>
+</section>
 
-/* ============================================================
-   PASSWORD GATE
-   ============================================================ */
-const gate = document.getElementById("gate");
-const gateInput = document.getElementById("gate-input");
-const gateErr = document.getElementById("gate-err");
-function tryUnlock(){
-  if(gateInput.value === DASHBOARD_PASSWORD){
-    gate.classList.add("hidden");
-    boot();
-  } else {
-    gateErr.textContent = "ACCESS DENIED";
-    gateInput.value = "";
-    gateInput.focus();
-  }
-}
-document.getElementById("gate-btn").addEventListener("click", tryUnlock);
-gateInput.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); });
-window.addEventListener("load", ()=>gateInput.focus());
+<!-- SUCCESS STORIES -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Success stories</span>
+      <h2>Proof, not promises</h2>
+    </div>
+    <div class="grid g-3" style="margin-top:3rem">
+      <div class="card reveal">
+        <span class="eyebrow">Jewelry &amp; Retail</span>
+        <h3>From $110 to $4 per add-to-cart</h3>
+        <p>For our jewelry client <strong>arvani305</strong>, we rebuilt their video approach and ad framework — cutting cost-per-add-to-cart from roughly $110 to about $4.</p>
+        <a class="ind-link" style="color:var(--blue-600);margin-top:1rem;display:inline-flex;gap:.4rem" href="social-media.html">See the framework →</a>
+      </div>
+      <div class="card reveal d1">
+        <span class="eyebrow">Healthcare</span>
+        <h3>A small brand, real patients</h3>
+        <p>We grew awareness and followers with efficient Facebook ads and built a conversion-focused website that collected genuinely interested patients — leaving the closing to their team.</p>
+        <a class="ind-link" style="color:var(--blue-600);margin-top:1rem;display:inline-flex;gap:.4rem" href="medical-practices.html">Read more →</a>
+      </div>
+      <div class="card reveal d2">
+        <span class="eyebrow">E-commerce</span>
+        <h3>A corner grocery goes global</h3>
+        <p>We helped an ethnic grocery store in New Jersey identify one or two highly profitable products, built the online infrastructure, trained the team — and they took off.</p>
+        <a class="ind-link" style="color:var(--blue-600);margin-top:1rem;display:inline-flex;gap:.4rem" href="ecommerce.html">Read the case →</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-/* ============================================================
-   TIME HELPERS
-   ============================================================ */
-function relTime(iso){
-  if(!iso) return "—";
-  const d = new Date(iso);
-  if(isNaN(d)) return "—";
-  const diff = (d.getTime() - Date.now())/1000; // seconds; negative = past
-  const past = diff < 0;
-  let s = Math.abs(diff);
-  const units = [["d",86400],["h",3600],["m",60]];
-  for(const [label,sec] of units){
-    if(s >= sec){
-      const n = Math.floor(s/sec);
-      return past ? `${n}${label} ago` : `in ${n}${label}`;
+<!-- TESTIMONIALS -->
+<section class="section" style="background:var(--bg-soft)">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">In their words</span>
+      <h2>What partners say</h2>
+    </div>
+    <div class="quote-grid" style="margin-top:3rem">
+      <div class="quote reveal">
+        <div class="stars">★★★★★</div>
+        <p>"They became our tenant and the property has never looked better. Rent shows up on time, every time, and I stopped worrying about it."</p>
+        <div class="who"><span class="av">M</span><div><strong>Property Owner</strong><span>Fort Lauderdale, FL</span></div></div>
+      </div>
+      <div class="quote reveal d1">
+        <div class="stars">★★★★★</div>
+        <p>"Our ad costs dropped dramatically once Laksford reworked our video and funnel. We finally get leads that actually book."</p>
+        <div class="who"><span class="av">A</span><div><strong>Founder, Jewelry Brand</strong><span>arvani305</span></div></div>
+      </div>
+      <div class="quote reveal d2">
+        <div class="stars">★★★★★</div>
+        <p>"They found the products we should sell online, built everything, and taught us how to run it. Game changer for our shop."</p>
+        <div class="who"><span class="av">R</span><div><strong>Retail Owner</strong><span>New Jersey</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section">
+  <div class="wrap">
+    <div class="cta reveal">
+      <div class="hero-glow g1"></div>
+      <h2>Let's digitize your business.</h2>
+      <p>Book a free strategy call. As your digitalization firm, we'll map exactly where the growth is hiding and how B2B performance marketing and conversion rate optimization unlock it — whether that's your property, your pipeline, or your storefront.</p>
+      <div class="cta-btns">
+        <a class="btn btn-light" href="contact.html">Book a Strategy Call <span class="arrow">→</span></a>
+        <a class="btn btn-ghost" href="consulting.html">See our consulting</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="index.html">
+          <img class="logo-svg" src="assets/logo.svg" alt="Laksford Partners" style="width:40px;height:40px">
+          <span class="brand-text"><span class="brand-name">LAKSFORD</span><span class="brand-sub">Partners</span></span>
+        </a>
+        <p class="f-about">Digitizing today, empowering tomorrow. A digitalization firm helping landlords, clinics, retailers, and brands grow — headquartered in Fort Lauderdale with an expert team in Ahmedabad.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Industries</h5>
+        <a href="real-estate.html">Real Estate &amp; Leasing</a>
+        <a href="medical-practices.html">Medical Practices</a>
+        <a href="ecommerce.html">E-commerce &amp; Retail</a>
+        <a href="social-media.html">Social Media &amp; Video</a>
+      </div>
+      <div class="foot-col">
+        <h5>Company</h5>
+        <a href="consulting.html">Consulting</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="about.html">About Us</a>
+        <a href="contact.html">Contact</a>
+        <a href="contact.html">Book a Call</a>
+      </div>
+      <div class="foot-col">
+        <h5>Get in touch</h5>
+        <a href="mailto:laksfordpartners@outlook.com">laksfordpartners@outlook.com</a>
+        <a href="tel:+17325325691">(732) 532-5691</a><a href="contact.html">Fort Lauderdale, FL</a>
+        <a href="contact.html">Ahmedabad, India</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> Laksford Partners. All rights reserved.</span>
+      <div class="locs"><span>Miami</span><span>Fort Lauderdale</span><span>West Palm Beach</span><span>New York</span><span>Hoboken</span><span>Princeton</span></div>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://laksford.com/#organization",
+      "name": "Laksford Partners",
+      "url": "https://laksford.com/",
+      "email": "laksfordpartners@outlook.com",
+      "telephone": "+17325325691",
+      "description": "Laksford Partners is a digitalization firm delivering B2B performance marketing infrastructure, omnichannel business automation, and conversion rate optimization for local businesses.",
+      "logo": "https://laksford.com/assets/logo.svg",
+      "image": "https://laksford.com/og-image.jpg",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Fort Lauderdale",
+        "addressRegion": "FL",
+        "addressCountry": "US"
+      },
+      "areaServed": [
+        { "@type": "City", "name": "Miami" },
+        { "@type": "City", "name": "Fort Lauderdale" },
+        { "@type": "City", "name": "West Palm Beach" },
+        { "@type": "City", "name": "New York" },
+        { "@type": "City", "name": "Hoboken" },
+        { "@type": "City", "name": "Princeton" }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://laksford.com/#website",
+      "url": "https://laksford.com/",
+      "name": "Laksford Partners",
+      "description": "Digitalization firm providing B2B performance marketing, omnichannel business automation, and conversion rate optimization.",
+      "publisher": { "@id": "https://laksford.com/#organization" }
     }
-  }
-  const n = Math.max(0,Math.floor(s));
-  return past ? `${n}s ago` : `in ${n}s`;
+  ]
 }
-function clockStr(){
-  const d = new Date();
-  const p = n => String(n).padStart(2,"0");
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
-/* ============================================================
-   STATUS -> COLOR
-   ============================================================ */
-function statusColor(agent){
-  const s = (agent.status||"").toUpperCase();
-  if(s === "ACTIVE") return getCSS("--green");
-  if(s === "PAUSED") return getCSS("--text-dim");
-  if(s === "ATTENTION") return getCSS("--red");
-  return getCSS("--cyan");
-}
-function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
-
-/* ============================================================
-   LAYOUT — radial around brain. Works for 1..N agents w/o overlap.
-   ============================================================ */
-function computeLayout(){
-  const stage = document.getElementById("stage").getBoundingClientRect();
-  W = stage.width; H = stage.height;
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  brain.x = W/2;
-  brain.y = H/2;
-  const minSide = Math.min(W,H);
-  brain.r = Math.max(34, Math.min(72, minSide*0.085));
-
-  nodes = [];
-  if(!DATA || !DATA.agents || !DATA.agents.length) return;
-
-  const agents = DATA.agents;
-  const n = agents.length;
-  // ring radius: keep nodes inside viewport, away from brain & header
-  const ring = Math.max(brain.r + 90, Math.min(minSide*0.36, (minSide/2) - 70));
-  const nodeR = Math.max(20, Math.min(40, (2*Math.PI*ring)/(n) * 0.16, minSide*0.05 + 14));
-  // start at top (-90deg) so first node sits above brain
-  const start = -Math.PI/2;
-  for(let i=0;i<n;i++){
-    const ang = start + (i * 2*Math.PI / n);
-    const x = brain.x + ring*Math.cos(ang);
-    const y = brain.y + ring*Math.sin(ang);
-    nodes.push({ agent:agents[i], x, y, r:nodeR, ang });
-  }
-}
-
-/* ============================================================
-   RENDER GRAPH (build SVG once per data/layout change)
-   ============================================================ */
-function el(tag, attrs){
-  const e = document.createElementNS(SVGNS, tag);
-  for(const k in attrs) e.setAttribute(k, attrs[k]);
-  return e;
-}
-
-function renderGraph(){
-  svg.innerHTML = "";
-  // defs: glow filters + gradients
-  const defs = el("defs",{});
-  defs.innerHTML = `
-    <filter id="glowSoft" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="6" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glowBig" x="-120%" y="-120%" width="340%" height="340%">
-      <feGaussianBlur stdDeviation="14" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <radialGradient id="brainGrad" cx="50%" cy="45%" r="60%">
-      <stop offset="0%" stop-color="#fff4d6"/>
-      <stop offset="35%" stop-color="#ffd27a"/>
-      <stop offset="75%" stop-color="#ffb347"/>
-      <stop offset="100%" stop-color="#a8651a"/>
-    </radialGradient>`;
-  svg.appendChild(defs);
-
-  if(!nodes.length){ return; }
-
-  const gLines = el("g",{}); svg.appendChild(gLines);
-  const gPulse = el("g",{}); svg.appendChild(gPulse);
-  const gNodes = el("g",{}); svg.appendChild(gNodes);
-
-  // connecting lines + flowing energy dots
-  nodes.forEach(nd=>{
-    const col = statusColor(nd.agent);
-    const line = el("line",{
-      x1:brain.x, y1:brain.y, x2:nd.x, y2:nd.y,
-      stroke:col, "stroke-width":1.6, "stroke-opacity":0.34,
-      filter:"url(#glowSoft)", "data-line":nd.agent.id
-    });
-    gLines.appendChild(line);
-    // 2 energy particles per wire
-    for(let k=0;k<2;k++){
-      const dot = el("circle",{ r:2.6, fill:col, filter:"url(#glowSoft)",
-        "data-flow":nd.agent.id, "data-phase":(k*0.5) });
-      gPulse.appendChild(dot);
-    }
-  });
-
-  // brain hub
-  const brainG = el("g",{ "data-brain":"1" });
-  brainG.appendChild(el("circle",{ cx:brain.x, cy:brain.y, r:brain.r*1.7,
-    fill:"none", stroke:"#ffb347", "stroke-opacity":0.16, "stroke-width":1, "data-halo":"1" }));
-  brainG.appendChild(el("circle",{ cx:brain.x, cy:brain.y, r:brain.r,
-    fill:"url(#brainGrad)", filter:"url(#glowBig)" }));
-  brainG.appendChild(el("circle",{ cx:brain.x, cy:brain.y, r:brain.r,
-    fill:"none", stroke:"#fff4d6", "stroke-opacity":0.5, "stroke-width":1 }));
-  const bt = el("text",{ x:brain.x, y:brain.y-2, "text-anchor":"middle",
-    "font-family":"Orbitron, sans-serif", "font-weight":"900",
-    "font-size": Math.max(11, brain.r*0.34), fill:"#241405", "letter-spacing":"1.5" });
-  bt.textContent = "THE BRAIN";
-  brainG.appendChild(bt);
-  const bs = el("text",{ x:brain.x, y:brain.y + brain.r*0.42, "text-anchor":"middle",
-    "font-family":"Share Tech Mono, monospace", "font-size": Math.max(8, brain.r*0.2),
-    fill:"#3a2206", id:"brain-stat" });
-  bs.textContent = "";
-  brainG.appendChild(bs);
-  svg.appendChild(brainG);
-
-  // agent nodes
-  nodes.forEach(nd=>{
-    const col = statusColor(nd.agent);
-    const g = el("g",{ "data-node":nd.agent.id, style:"cursor:pointer" });
-    // pending pulse ring
-    if(nd.agent.has_pending){
-      g.appendChild(el("circle",{ cx:nd.x, cy:nd.y, r:nd.r+6, fill:"none",
-        stroke:getCSS("--amber"), "stroke-width":2, "data-pendring":nd.agent.id }));
-    }
-    g.appendChild(el("circle",{ cx:nd.x, cy:nd.y, r:nd.r, fill:"#0a1018",
-      stroke:col, "stroke-width":2.4, filter:"url(#glowSoft)", "data-core":nd.agent.id }));
-    g.appendChild(el("circle",{ cx:nd.x, cy:nd.y, r:nd.r*0.5, fill:col,
-      "fill-opacity":0.85, filter:"url(#glowSoft)", "data-inner":nd.agent.id }));
-    // label below node
-    const label = shortLabel(nd.agent.name);
-    const lt = el("text",{ x:nd.x, y:nd.y + nd.r + 16, "text-anchor":"middle",
-      "font-family":"Rajdhani, sans-serif", "font-weight":"700", "font-size":13,
-      fill:"#e8eef7", "letter-spacing":"0.5" });
-    lt.textContent = label;
-    g.appendChild(lt);
-    const st = el("text",{ x:nd.x, y:nd.y + nd.r + 31, "text-anchor":"middle",
-      "font-family":"Share Tech Mono, monospace", "font-size":10,
-      fill:col, "letter-spacing":"1" });
-    st.textContent = (nd.agent.status||"").toUpperCase();
-    g.appendChild(st);
-
-    g.addEventListener("mouseenter", ()=>{ hoverId = nd.agent.id; if(!selectedId) openDetail(nd.agent.id, nd); });
-    g.addEventListener("mouseleave", ()=>{ hoverId = null; if(!selectedId) hideDetail(); });
-    g.addEventListener("click", (e)=>{ e.stopPropagation(); selectedId = nd.agent.id; openDetail(nd.agent.id, nd); });
-    gNodes.appendChild(g);
-  });
-}
-
-function shortLabel(name){
-  if(name.length <= 18) return name;
-  return name.slice(0,17) + "…";
-}
-
-/* ============================================================
-   ANIMATION LOOP — wire energy flow + pulsing
-   ============================================================ */
-function animate(){
-  const t = (performance.now() - t0)/1000;
-  // energy particles travel brain -> node
-  document.querySelectorAll("[data-flow]").forEach(dot=>{
-    const id = dot.getAttribute("data-flow");
-    const phase = parseFloat(dot.getAttribute("data-phase"));
-    const nd = nodes.find(n=>n.agent.id===id);
-    if(!nd) return;
-    let p = (t*0.35 + phase) % 1;            // 0..1 along the wire
-    const x = brain.x + (nd.x-brain.x)*p;
-    const y = brain.y + (nd.y-brain.y)*p;
-    dot.setAttribute("cx", x);
-    dot.setAttribute("cy", y);
-    dot.setAttribute("opacity", 0.35 + 0.65*Math.sin(p*Math.PI));
-  });
-  // brain halo breathe
-  const halo = svg.querySelector("[data-halo]");
-  if(halo){ halo.setAttribute("stroke-opacity", (0.10 + 0.10*Math.abs(Math.sin(t*0.8))).toFixed(3)); }
-  // node inner pulse (active steady glow, pending flag pulses harder)
-  nodes.forEach(nd=>{
-    const inner = svg.querySelector(`[data-inner="${cssEsc(nd.agent.id)}"]`);
-    if(inner){
-      const base = nd.agent.has_pending ? (0.5 + 0.5*Math.abs(Math.sin(t*2.4)))
-                                        : (0.7 + 0.18*Math.sin(t*1.3 + nd.ang));
-      inner.setAttribute("fill-opacity", base.toFixed(3));
-    }
-    const ring = svg.querySelector(`[data-pendring="${cssEsc(nd.agent.id)}"]`);
-    if(ring){
-      const o = 0.25 + 0.55*Math.abs(Math.sin(t*2.4));
-      ring.setAttribute("stroke-opacity", o.toFixed(3));
-      ring.setAttribute("r", nd.r + 6 + 3*Math.abs(Math.sin(t*2.4)));
-    }
-    // highlight hovered/selected core
-    const core = svg.querySelector(`[data-core="${cssEsc(nd.agent.id)}"]`);
-    if(core){
-      const active = (nd.agent.id===hoverId || nd.agent.id===selectedId);
-      core.setAttribute("stroke-width", active ? 3.6 : 2.4);
-    }
-  });
-  requestAnimationFrame(animate);
-}
-function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g,"\\$&"); }
-
-/* ============================================================
-   DETAIL CARD
-   ============================================================ */
-const detail = document.getElementById("detail");
-function openDetail(id, nd){
-  const a = (DATA.agents||[]).find(x=>x.id===id);
-  if(!a) return;
-  const col = statusColor(a);
-  detail.querySelector(".dot").style.color = col;
-  detail.querySelector(".dot").style.background = col;
-  document.getElementById("d-name").textContent = a.name;
-  const badge = document.getElementById("d-badge");
-  badge.textContent = (a.status||"").toUpperCase();
-  badge.style.color = col;
-  document.getElementById("d-desc").textContent = a.description || "";
-  document.getElementById("d-sched").textContent = a.schedule_human || a.schedule_cron || "—";
-  document.getElementById("d-last").textContent = relTime(a.last_run);
-  document.getElementById("d-next").textContent = relTime(a.next_run);
-  document.getElementById("d-result").textContent = a.latest_result || "No result reported.";
-  document.getElementById("d-pending").style.display = a.has_pending ? "flex" : "none";
-
-  // position near node, clamped to viewport
-  positionDetail(nd);
-  detail.classList.add("show");
-}
-function positionDetail(nd){
-  if(!nd){ return; }
-  const cardW = detail.offsetWidth || 340;
-  const cardH = detail.offsetHeight || 260;
-  let left = nd.x + nd.r + 18;
-  let top = nd.y - cardH/2;
-  if(left + cardW > window.innerWidth - 12) left = nd.x - nd.r - 18 - cardW;
-  if(left < 12) left = 12;
-  top = Math.max(74, Math.min(top, window.innerHeight - cardH - 12));
-  // mobile rule handled in CSS overrides left/bottom; only set inline on wide screens
-  if(window.innerWidth > 720){
-    detail.style.left = left + "px";
-    detail.style.top = top + "px";
-    detail.style.bottom = "auto";
-  }
-}
-function hideDetail(){ detail.classList.remove("show"); }
-detail.querySelector(".close").addEventListener("click", ()=>{ selectedId=null; hideDetail(); });
-document.getElementById("stage").addEventListener("click", ()=>{ selectedId=null; hideDetail(); });
-
-/* ============================================================
-   ACTION QUEUE + HEADER STATUS
-   ============================================================ */
-function renderQueue(){
-  const items = (DATA && DATA.action_items) || [];
-  const body = document.getElementById("qbody");
-  const count = document.getElementById("qcount");
-  count.textContent = items.length;
-  count.classList.toggle("zero", items.length===0);
-  body.innerHTML = "";
-  if(!items.length){
-    body.innerHTML = `<div class="qempty">&#10003; All clear — nothing needs you right now.</div>`;
-  } else {
-    items.forEach(it=>{
-      const div = document.createElement("div");
-      div.className = "qitem";
-      div.innerHTML = `<span class="pri ${escAttr((it.priority||"LOW").toUpperCase())}">${escHtml((it.priority||"LOW").toUpperCase())}</span>
-        <div><div class="qt">${escHtml(it.title||"")}</div>
-        <div class="qd">${escHtml(it.detail||"")}</div></div>`;
-      const qt = div.querySelector(".qt");
-      if(it.agent_id){
-        qt.addEventListener("click", ()=>{
-          const nd = nodes.find(n=>n.agent.id===it.agent_id);
-          if(nd){ selectedId = it.agent_id; openDetail(it.agent_id, nd); }
-        });
-      }
-      body.appendChild(div);
-    });
-  }
-  // header system status
-  const sys = document.getElementById("sys-status");
-  if(items.length){
-    sys.textContent = "ATTENTION REQ";
-    sys.classList.add("attention");
-  } else {
-    sys.textContent = "SYSTEM NOMINAL";
-    sys.classList.remove("attention");
-  }
-}
-document.getElementById("qhead").addEventListener("click", ()=>{
-  document.getElementById("queue").classList.toggle("collapsed");
-});
-
-/* ============================================================
-   BRAIN STAT (online count + sync freshness)
-   ============================================================ */
-function updateBrainStat(){
-  const stat = document.getElementById("brain-stat");
-  if(!stat || !DATA) return;
-  const online = (DATA.agents||[]).filter(a=>(a.status||"").toUpperCase()==="ACTIVE").length;
-  const synced = DATA.generated_at ? relTime(DATA.generated_at) : "—";
-  stat.textContent = `${online} ONLINE • ${synced}`;
-}
-
-/* ============================================================
-   BANNER (errors / awaiting first publish)
-   ============================================================ */
-function showBanner(msg){
-  const b = document.getElementById("banner");
-  b.textContent = msg; b.classList.add("show");
-}
-function hideBanner(){ document.getElementById("banner").classList.remove("show"); }
-
-/* ============================================================
-   FETCH + REFRESH
-   ============================================================ */
-async function loadData(manual){
-  const btn = document.getElementById("refreshBtn");
-  if(manual) btn.classList.add("spin");
-  try{
-    const res = await fetch(`${DATA_FILE}?t=${Date.now()}`, {cache:"no-store"});
-    if(!res.ok) throw new Error("HTTP "+res.status);
-    const json = await res.json();
-    if(!json || !Array.isArray(json.agents)) throw new Error("malformed");
-    DATA = json;
-    hideBanner();
-    computeLayout();
-    renderGraph();
-    renderQueue();
-    updateBrainStat();
-    stampUpdated();
-    // keep open detail card fresh
-    if(selectedId){
-      const nd = nodes.find(n=>n.agent.id===selectedId);
-      if(nd) openDetail(selectedId, nd); else { selectedId=null; hideDetail(); }
-    }
-  }catch(err){
-    if(!DATA){
-      showBanner("⌛ Awaiting first data publish — agents_status.json not available yet.");
-      document.getElementById("updated").textContent = "no data";
-    } else {
-      showBanner("⚠ Couldn't refresh data ("+err.message+"). Showing last good snapshot.");
-    }
-  }finally{
-    if(manual) setTimeout(()=>btn.classList.remove("spin"), 400);
-  }
-}
-function stampUpdated(){
-  const d = new Date();
-  const p = n=>String(n).padStart(2,"0");
-  document.getElementById("updated").textContent =
-    `updated ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` +
-    (DATA && DATA.generated_at ? ` • data ${relTime(DATA.generated_at)}` : "");
-}
-document.getElementById("refreshBtn").addEventListener("click", ()=>loadData(true));
-
-/* ============================================================
-   HELPERS — escaping
-   ============================================================ */
-function escHtml(s){ return String(s).replace(/[&<>"']/g, c=>(
-  {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
-function escAttr(s){ return String(s).replace(/[^A-Z]/g,""); }
-
-/* ============================================================
-   BACKGROUND PARTICLES
-   ============================================================ */
-function initParticles(){
-  const c = document.getElementById("bg-particles");
-  const ctx = c.getContext("2d");
-  let parts = [];
-  function resize(){ c.width=window.innerWidth; c.height=window.innerHeight;
-    parts = Array.from({length: Math.min(70, Math.floor(window.innerWidth/22))}, ()=>({
-      x:Math.random()*c.width, y:Math.random()*c.height,
-      r:Math.random()*1.6+0.3, s:Math.random()*0.3+0.05,
-      a:Math.random()*0.5+0.1, hue: Math.random()>0.5 ? "57,224,255" : "255,179,71"
-    })); }
-  resize(); window.addEventListener("resize", resize);
-  (function draw(){
-    ctx.clearRect(0,0,c.width,c.height);
-    parts.forEach(p=>{
-      p.y -= p.s; if(p.y < -4){ p.y = c.height+4; p.x = Math.random()*c.width; }
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283);
-      ctx.fillStyle=`rgba(${p.hue},${p.a})`; ctx.fill();
-    });
-    requestAnimationFrame(draw);
-  })();
-}
-
-/* ============================================================
-   BOOT
-   ============================================================ */
-function boot(){
-  initParticles();
-  loadData(false);
-  animate();
-  setInterval(()=>loadData(false), REFRESH_MS);
-  setInterval(()=>{ document.getElementById("clock").textContent = clockStr(); updateBrainStat();
-    // refresh relative times in open card
-    if(selectedId){ const a=(DATA&&DATA.agents||[]).find(x=>x.id===selectedId);
-      if(a){ document.getElementById("d-last").textContent=relTime(a.last_run);
-             document.getElementById("d-next").textContent=relTime(a.next_run);} }
-  }, 1000);
-  document.getElementById("clock").textContent = clockStr();
-}
-
-/* relayout on resize */
-let rT;
-window.addEventListener("resize", ()=>{
-  clearTimeout(rT);
-  rT = setTimeout(()=>{ if(DATA){ computeLayout(); renderGraph();
-    if(selectedId){ const nd=nodes.find(n=>n.agent.id===selectedId); if(nd) openDetail(selectedId,nd); } } }, 180);
-});
 </script>
 </body>
 </html>
